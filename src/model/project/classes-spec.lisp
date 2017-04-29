@@ -29,6 +29,18 @@
   (when-let ((info (find-variable name :if-does-not-exist nil)))
     (aggregation info)))
 
+;;; `target-spec' class
+
+(defclass target-spec (named-mixin
+                       direct-variables-mixin)
+  ()
+  (:documentation
+   "Instances of this class describe .
+
+    `target-spec' instances can reference zero or more `template'
+    instances from which variables, version specifications and job
+    specifications are inherited."))
+
 ;;; `distribution-include'
 
 (defclass distribution-include (direct-variables-mixin
