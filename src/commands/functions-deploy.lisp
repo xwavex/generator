@@ -1,6 +1,6 @@
 ;;;; functions-deploy.lisp --- Functions for deploying Jenkins jobs.
 ;;;;
-;;;; Copyright (C) 2017, 2018 Jan Moringen
+;;;; Copyright (C) 2017, 2018, 2019 Jan Moringen
 ;;;;
 ;;;; Author: Jan Moringen <jmoringe@techfak.uni-bielefeld.de>
 
@@ -8,7 +8,7 @@
 
 ;;; Deployment
 
-(defun deploy-projects (versions)
+(defun deploy-projects (versions target)
   (with-sequence-progress (:deploy/project versions)
     (iter (for version in versions)
           (progress "~/print-items:format-print-items/"
@@ -16,14 +16,14 @@
           (more-conditions::without-progress
             (with-simple-restart
                 (continue "~@<Skip deploying project version ~S.~@:>" version)
-              (appending (flatten (deploy version))))))))
+              (appending (flatten (deploy version target))))))))
 
-(defun deploy-job-dependencies (jobs)
+(defun deploy-job-dependencies (jobs target)
   (with-sequence-progress (:deploy/dependencies jobs)
     (iter (for job in jobs)
           (progress "~/print-items:format-print-items/"
                     (print-items:print-items job))
-          (deploy-dependencies job))))
+          (deploy-dependencies job target))))
 
 ;;; Toolkit specific stuff
 
@@ -40,7 +40,7 @@
                            (reinitialize-instance project-spec
                                                   :versions (list version-spec))
                            (instantiate version-spec :parent distribution))))
-      (flatten (deploy version)))))
+      (flatten (deploy version :jenkins)))))
 
 (defun configure-view (name jobs &key columns)
   (with-trivial-progress (:view "~A" name)

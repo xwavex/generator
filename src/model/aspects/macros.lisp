@@ -117,9 +117,10 @@
         'aspect ,(make-keyword name) :class ',class-name)
 
        ,@(when body
-           `((defmethod extend! progn ((,job-var    jenkins.api:job)
-                                       (,aspect-var ,class-name)
-                                       (,spec-var   t #+actually job))
+           `((defmethod extend! progn ((,aspect-var ,class-name)
+                                       (,spec-var   t #+actually job)
+                                       (,job-var    jenkins.api:job)
+                                       (target      (eql :jenkins)))
                (log:debug "Applying ~A to ~A" ,aspect-var ,job-var)
                ,(make-aspect-extend!-body
                  aspect-var parameters

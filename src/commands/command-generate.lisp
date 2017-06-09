@@ -75,7 +75,7 @@
     (as-phase (:check-access ; :continuable? nil
                )
       (check-distribution-access distributions))
-    (generate-deploy distributions
+    (generate-deploy distributions :jenkins
                      :delete-other?        delete-other?
                      :delete-other-pattern delete-other-pattern)))
 
@@ -154,17 +154,17 @@
 (defun generated? (job)
   (search "automatically generated" (jenkins.api:description job)))
 
-(defun generate-deploy (distributions
+(defun generate-deploy (distributions target
                         &key
                         delete-other?
                         delete-other-pattern)
   (let+ ((projects (mappend #'versions distributions))
          (jobs/specs (as-phase (:deploy/project)
-                       (let ((jobs (deploy-projects projects)))
+                       (let ((jobs (deploy-projects projects target)))
                          (when (some (lambda (job)
                                        (not (eq (value/cast job :dependencies.mode) :none)))
                                      jobs)
-                           (deploy-job-dependencies jobs))
+                           (deploy-job-dependencies jobs target))
                          jobs)))
          (jobs       (mappend #'implementations jobs/specs))
          ((&values &ign orchestration-jobs)

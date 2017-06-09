@@ -80,7 +80,7 @@
    "Return non-nil if CONSTRAINTS mandate that the step LEFT should be
     executed before the step RIGHT."))
 
-(defgeneric extend! (job aspect spec)
+(defgeneric extend! (aspect spec output target)
   (:method-combination progn))
 
 ;; Default behavior
@@ -92,14 +92,17 @@
 (defmethod step-constraints ((aspect t) (phase t) (step t))
   '())
 
-(defmethod extend! progn ((job t) (aspect list) (spec t))
+(defmethod extend! progn ((aspect list)
+                          (spec   t)
+                          (output jenkins.api:job)
+                          (target (eql :jenkins)))
   ;; Apply aspects, respecting declared ordering, and sort generated
   ;; steps (i.e. builders and publishers) according to declared
   ;; ordering.
   (let+ ((*step-constraints* '())
          (aspects (sort-with-partial-order (copy-list aspect) #'aspect<))
          ((&flet sort-phase (phase read write)
-            (let ((unsorted    (funcall read job))
+            (let ((unsorted    (funcall read output))
                   (constraints (constraints-table phase)))
               (when unsorted
                 (log:trace "~@<~@(~A~)er constraint~P:~@:_~
@@ -117,11 +120,13 @@
                   (log:debug "~@<Sorted ~(~A~)er~P:~@:_~
                               ~@<~{• ~A~^~@:_~}~@:>~@:>"
                              phase (length sorted) sorted)
-                  (funcall write sorted job)))))))
+                  (funcall write sorted output)))))))
 
     ;; Methods on `extend!' add entries to `*step-constraints*' and
     ;; push builders onto (builders job).
-    (reduce (rcurry #'extend! spec) aspects :initial-value job)
+    (reduce (lambda (output aspect)
+              (extend! aspect spec output target))
+            aspects :initial-value output)
 
     (sort-phase 'build   #'builders   #'(setf builders))
     (sort-phase 'publish #'publishers #'(setf publishers))))

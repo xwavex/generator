@@ -320,13 +320,13 @@
 
   (mapc #'add-dependencies! (jobs thing) (jobs spec)))
 
-(defmethod deploy ((thing version))
+(defmethod deploy ((thing version) (target t))
   (with-sequence-progress (:deploy/job (jobs thing))
-    (mapcar #'deploy (jobs thing))))
+    (mapcar (rcurry #'deploy target) (jobs thing))))
 
 (defvar *outermost-version?* t)
 
-(defmethod deploy :around ((thing version))
+(defmethod deploy :around ((thing version) (target t))
   (if *outermost-version?*
       (with-condition-translation (((error project-deployment-error)
                                     :thing thing))
@@ -379,7 +379,7 @@
                                dependency-name dependency (jobs dependency)))))
               (pushnew dependency (%direct-dependencies thing)))))))
 
-(defmethod deploy ((thing job))
+(defmethod deploy ((thing job) (target (eql :jenkins)))
   (let+ ((id        (substitute-if-not
                      #\_ #'jenkins.api:job-name-character?
                      (value/cast thing :build-job-name)))
@@ -405,7 +405,7 @@
 
               ;; Apply aspects, respecting declared ordering, and sort
               ;; generated builders according to declared ordering.
-              (jenkins.model.aspects:extend! job (aspects thing) thing)
+              (jenkins.model.aspects:extend! (aspects thing) thing job target)
 
               ;; TODO temp
               (xloc:->xml job (stp:root (jenkins.api::%data job)) 'jenkins.api:job)
@@ -441,7 +441,7 @@
 
     thing))
 
-(defmethod deploy-dependencies ((thing job))
+(defmethod deploy-dependencies ((thing job) (target (eql :jenkins)))
   (let ((relevant-dependencies
          (ecase (value/cast thing :dependencies.mode :direct)
            (:direct  (direct-dependencies thing))
