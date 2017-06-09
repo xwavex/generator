@@ -176,6 +176,17 @@
                               (:file     "aspects-build")
                               (:file     "aspects-publish")))
 
+                (:module     "target-dockerfile"
+                 :pathname   "src/target/dockerfile"
+                 :depends-on ("model"
+                              "model-project"
+                              "model-aspects")
+                 :serial     t
+                 :components ((:file     "package")
+                              (:file     "util")
+                              (:file     "target")
+                              (:file     "aspects")))
+
                 (:module     "report"
                  :pathname   "src/report"
                  :depends-on ("util" "model-project")
