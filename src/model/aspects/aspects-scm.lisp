@@ -17,7 +17,8 @@
              :exclude (list* first exclude))
             (make-move-stuff-upwards/unix components))))
 
-(define-aspect (archive) (builder-defining-mixin)
+(define-aspect (archive :aspect-var aspect :spec-var spec :job-var job)
+    (builder-defining-mixin)
     ((url                                  :type string
       :documentation
       "URL from which the archive should be downloaded.
@@ -32,35 +33,47 @@
 
    This may be useful when a SCM repository is not available but
    source archives are."
+  (declare (ignore url filename))
   ;; In case we are updating an existing job, remove any repository
   ;; configuration.
   (setf (repository job) (make-instance 'scm/null))
 
   ;; Generate archive download and extraction as a shell builder.
-  (let* ((url/parsed (puri:uri url))
-         (archive    (or filename (lastcar (puri:uri-parsed-path url/parsed))))
-         (command    (format nil "# Clean workspace.~@
-                                  ~A~@
-                                  ~@
-                                  # Unpack archive.~@
-                                  wget --no-verbose \"~A\" --output-document=\"~A\"~@
-                                  unp -U \"~:*~A\"~@
-                                  rm \"~:*~A\"~@
-                                  directory=$(find . -mindepth 1 -maxdepth 1)~@
-                                  ~@
-                                  ~A"
-                             (make-remove-directory-contents/unix)
-                             url archive
-                             (make-move-stuff-upwards/unix
-                              (list* "${directory}"
-                                     (when sub-directory
-                                       (rest (pathname-directory
-                                              (uiop:ensure-directory-pathname
-                                               sub-directory)))))))))
-    (push (constraint! (build ((:before t))) (shell (:command command)))
-          (builders job))))
+  (push (constraint! (build ((:before t)))
+          (shell (:command (extend! aspect spec 'string :command))))
+        (builders job)))
 
-(define-aspect (git :job-var job :aspect-var aspect) (builder-defining-mixin)
+(defmethod extend! ((aspect aspect-archive)
+                    (spec   t)
+                    (output stream)
+                    (target (eql :command)))
+  (catch '%bail
+    (apply
+     (lambda (url filename sub-directory)
+       (let* ((url/parsed (puri:uri url))
+              (archive    (or filename (lastcar (puri:uri-parsed-path url/parsed)))))
+         (format output "# Clean workspace.~@
+                         ~A~@
+                         ~@
+                         # Unpack archive.~@
+                         wget --no-verbose \"~A\" --output-document=\"~A\"~@
+                         unp -U \"~:*~A\"~@
+                         rm \"~:*~A\"~@
+                         directory=$(find . -mindepth 1 -maxdepth 1)~@
+                         ~@
+                         ~A"
+                 (make-remove-directory-contents/unix)
+                 url archive
+                 (make-move-stuff-upwards/unix
+                  (list* "${directory}"
+                         (when sub-directory
+                           (rest (pathname-directory
+                                  (uiop:ensure-directory-pathname
+                                   sub-directory)))))))))
+     (aspect-process-parameters aspect))))
+
+(define-aspect (git :aspect-var aspect :spec-var spec :job-var job)
+    (builder-defining-mixin)
     ((url                                   :type string
       :documentation
       "URL of the remote git repository from which the project source
@@ -145,9 +158,33 @@
   ;; workspace directory before proceeding.
   (when sub-directory
     (push (constraint! (build ((:before t)))
-            (shell (:command (make-focus-sub-directory-command
-                              sub-directory :exclude '(".git")))))
+            (shell (:command (extend! aspect spec 'string :sub-directory-command))))
           (builders job))))
+
+(defmethod extend! ((aspect aspect-git)
+                    (spec   t)
+                    (output (eql 'string))
+                    (target (eql :sub-directory-command)))
+  (apply
+   (lambda (url username password credentials branches local-branch
+            clone-timeout wipe-out-workspace? clean-before-checkout?
+            checkout-submodules? shallow? sub-directory)
+     (make-focus-sub-directory-command
+      sub-directory :exclude '(".git")))
+   (aspect-process-parameters aspect)))
+
+(defmethod extend! ((aspect aspect-git)
+                    (spec   t)
+                    (output stream)
+                    (target (eql :command)))
+  (apply
+   (lambda (url username password credentials branches local-branch
+            clone-timeout wipe-out-workspace? clean-before-checkout?
+            checkout-submodules? shallow? sub-directory)
+     (declare (ignore sub-directory))
+     (format output "git clone~:[~; --recursive~] -b ~A ~A .~%"
+             checkout-submodules? (first branches) url))
+   (aspect-process-parameters aspect)))
 
 (define-aspect (git-repository-browser
                 :job-var     job
@@ -268,9 +305,18 @@
   ;; workspace directory before proceeding.
   (when sub-directory
     (push (constraint! (build ((:before t)))
-            (shell (:command (make-focus-sub-directory-command
-                              sub-directory :exclude '(".hg")))))
+            (shell (:command (extend! aspect spec 'string :sub-directory-command))))
           (builders job))))
+
+(defmethod extend! ((aspect aspect-mercurial)
+                    (spec   t)
+                    (output (eql 'string))
+                    (target (eql :sub-directory-command)))
+  (apply
+   (lambda (url credentials branch tag clean? sub-directory)
+     (declare (ignore url credentials branch tag clean?))
+     (make-focus-sub-directory-command sub-directory :exclude '(".hg")))
+   (aspect-process-parameters aspect)))
 
 (define-aspect (trigger/scm) ()
     ((spec :type (or null string)
