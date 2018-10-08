@@ -1,0 +1,26 @@
+* Introduction
+
+  Makefile target
+
+* Noteworthy
+
+** TODO Stamps
+
+** TODO Name mangling
+
+** ONESHELL
+
+   We emit
+
+   #+BEGIN_SRC makefile
+     .ONESHELL:
+     SHELL = /bin/bash
+     .SHELLFLAGS = -ec
+   #+END_SRC
+
+   at the top of the Makefile.  This causes =make= to invoke the shell
+   such that it executes the recipe lines of each rule as a single
+   chunk instead of one shell invocation per line (or multiple
+   continuation lines using "\"). Note that we have to pass -c to the
+   shell so it doesn't attempt to execute the shell code chunk as a
+   command.

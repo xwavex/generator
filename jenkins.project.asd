@@ -187,6 +187,17 @@
                               (:file     "target")
                               (:file     "aspects")))
 
+                (:module     "target-makefile"
+                 :pathname   "src/target/makefile"
+                 :depends-on ("model"
+                              "model-project"
+                              "model-aspects")
+                 :serial     t
+                 :components ((:file     "package")
+                              (:file     "util")
+                              (:file     "target")
+                              (:file     "aspects")))
+
                 (:module     "report"
                  :pathname   "src/report"
                  :depends-on ("util" "model-project")
